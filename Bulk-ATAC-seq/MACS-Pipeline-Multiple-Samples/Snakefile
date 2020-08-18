@@ -1,0 +1,95 @@
+"""
+Bulk ATAC-seq analysis pipeline for multiple samples.
+
+"""
+
+configfile: "config.yaml"
+
+import yaml
+import sys
+import os
+
+rule all:
+    input:
+	name = config["general"]["name"],
+	# this won't work...
+        expand(["Result/Analysis/%s_peaks.narrowPeak" % (x) for x in ["{name}_1","{name}_2","{name}_3","{name}_1","{name}_2","{name}_3"] ]),
+        expand(["Result/QC/%s.stat.txt" % (x) for x in ["{name}_1","{name}_2","{name}_3","{name}_1","{name}_2","{name}_3"] ]),
+
+# ---- all the following rules are common rules for analyzing a single dataset ---
+
+rule atac_map:
+    input:
+        fasta = config["datafiles"]["fasta"],
+        fastq1 = "%s/{fastqid}_R1.fastq.gz" % (config["rawdata"]["fastqdir"]),
+        fastq2 = "%s/{fastqid}_R2.fastq.gz" % (config["rawdata"]["fastqdir"])
+    output:
+        bam = temp("Result/minimap2/{fastqid}.sortedByPos.bam")
+    threads:
+        config["options"]["cores"]
+    shell:
+        "minimap2 -ax sr -t {threads} {input.fasta} {input.fastq1} {input.fastq2} "
+        "| samtools view --threads {threads} -b"
+        "| samtools sort --threads {threads} -o {output.bam}"
+
+rule atac_bamrmdp:
+    input:
+        bam = "Result/minimap2/{fastqid}.sortedByPos.bam"
+    output:
+        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.bam",
+        metric = "Result/minimap2/{fastqid}.sortedByPos.rmdp.txt",
+        tmp = temp(directory("Result/Tmp/{fastqid}"))
+    shell:
+        "picard MarkDuplicates INPUT={input.bam} OUTPUT={output.bam} METRICS_FILE={output.metric} TMP_DIR={output.tmp};"
+        "rm {input.bam}"
+
+rule atac_callpeak:
+    input:
+        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.bam" 
+    output:
+        peak = "Result/Analysis/{fastqid}_peaks.narrowPeak",
+        bdg = "Result/Analysis/{fastqid}_treat_pileup.bdg",
+        bw = "Result/Analysis/{fastqid}_treat_pileup.bw",
+        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.bam"
+    params:
+        name = "{fastqid}",
+        chrombed = config["datafiles"]["chromBed"],
+	chromlen = config["datafiles"]["chromInfo"]
+    log:
+        "Result/Log/{fastqid}_macs2_peak.log"
+    benchmark:
+        "Result/Benchmark/{fastqid}_callpeak.benchmark"
+    shell:
+        "samtools view --threads {threads} -b -L {params.chrombed} -o {output.bam} {input.bam};"
+        "macs2 callpeak -g hs --outdir Result/Analysis -n {params.name} -B -q 0.05 -f BAMPE --SPMR -t {output.bam};"
+	"bdg2bw {output.bdg} {params.chromlen}"
+
+rule atac_qcstat:
+    input:
+        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.bam",
+        peak = "Result/Analysis/{fastqid}_peaks.narrowPeak",
+    output:
+        qc_stat = "Result/QC/{fastqid}.stat.txt",
+        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.unique.bam",
+        bed = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.unique.bed",
+    params:
+        promoter = "%s/%s_promoter.bed" %(config["datafiles"]["annodir"], config["datafiles"]["species"]),
+    threads:
+        config["options"]["cores"]
+    benchmark:
+        "Result/Benchmark/{fastqid}_BulkQCStat.benchmark"
+    shell:
+        "echo 'flagstat:' > {output.qc_stat};"
+        "samtools flagstat --threads {threads} {input.bam} >> {output.qc_stat};"
+        "samtools view -F 2316 -f 0x2 -q 30 -b -o {output.bam} {input.bam};"
+        "echo 'mapped Q30 reads:' >> {output.qc_stat};"
+        "samtools view {output.bam} -c >> {output.qc_stat};"
+        "bedtools bamtobed -i {output.bam} > {output.bed};"
+        "echo 'chrM reads:' >> {output.qc_stat};"
+        "grep -c 'chrM' {output.bed} >> {output.qc_stat} || true;"
+        "echo 'non chrM reads:' >> {output.qc_stat};"
+        "grep -v 'chrM' -c {output.bed} >> {output.qc_stat};"
+        "echo 'non chrM reads in promoter:' >> {output.qc_stat};"
+        "grep -v 'chrM' {output.bed} | bedtools intersect -wa -a - -b {params.promoter} -u | wc -l >> {output.qc_stat} || true;"
+        "echo 'non chrM reads in peak:' >> {output.qc_stat};"
+        "grep -v 'chrM' {output.bed} | bedtools intersect -wa -a - -b {input.peak} -u | wc -l >> {output.qc_stat} || true ;"

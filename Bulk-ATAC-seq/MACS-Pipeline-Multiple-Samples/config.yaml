@@ -1,0 +1,22 @@
+general:
+  # general settings for this analysis
+  # name of the analysis
+  name: thing1
+  # prefix of the output
+  outprefix: thing2
+
+rawdata:
+  # raw data location
+  fastqdir: /mnt/lustre/users/tliu/the/fastq/dir
+
+options:
+  # options for the analysis
+  species: GRCh38
+  cores: 2
+
+datafiles:
+  # Genome index directory for minimap2
+  fasta: /mnt/lustre/users/tliu/db/genome/GRCh38/genome.mmi
+  chromInfo: /mnt/lustre/users/tliu/db/genome/GRCh38/chrom.len
+  chromBed: /mnt/lustre/users/tliu/db/genome/GRCh38/chrom.bed
+  annodir: /mnt/lustre/users/tliu/db/annotation/GRCh38
