@@ -1,0 +1,46 @@
+# prefix of the major outputs, usually the exp name
+outprefix: EXPNAME
+
+# working directory on server
+workingdir: /PATH/TO/WORKINGDIR
+
+input:
+  # please rename the fastq file as cond1_name_R1.fastq and cond1_name_R2.fastq
+  cond1_name: COND1NAME
+  # please rename the fastq file as cond1_name_R2.fastq and cond2_name_R2.fastq
+  cond2_name: COND2NAME
+
+# configurations for consensus calling
+consensus:
+  method: callpeak # callpeak or merge
+  merge_cutoff: 1
+  merge_minlen: 200
+  merge_maxgap: 30
+
+# We only support hs(GRCh38) or mm(GRCm38)
+species: GRCh38
+
+# number of cpus to use
+cores: 2
+
+# parameter for MACS2
+peakcalling:
+  cutoff: 0.01
+  # pvalue or qvalue
+  cutoff_method: pvalue
+  # Y to use paried end mode -f BAMPE, otherwise -f BAM
+  PE_mode: Y
+  # Y to use --nolambda, otherwise no change
+  disable_lambda: Y
+
+# genome annotations
+genome:
+  # Genome index directory for minimap2
+  fasta: /mnt/lustre/users/tliu/db/genome/GRCh38/genome.mmi
+  # two columns file for chromosome information, EXCLUDING irregular chromosomes
+  chromInfo: /mnt/lustre/users/tliu/db/genome/GRCh38/chrom.len
+  # three columns BED file for chromosome information, EXCLUDING irregular chromosomes
+  chromBed: /mnt/lustre/users/tliu/db/genome/GRCh38/chrom.bed
+
+# Other annotations...
+annodir: /mnt/lustre/users/tliu/db/annotation/GRCh38

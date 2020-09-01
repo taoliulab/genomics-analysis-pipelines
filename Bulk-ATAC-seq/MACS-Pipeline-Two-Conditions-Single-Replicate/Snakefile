@@ -1,0 +1,171 @@
+"""
+Bulk ATAC-seq analysis pipeline.
+"""
+
+configfile: "config.yaml"
+
+import yaml
+import sys
+import os
+
+# decide certain parameters based on config.yaml
+macs2_genome = "hs" if config["species"] == "GRCh38" else "mm"
+macs2_cutoff_method = "-p" if config["peakcalling"]["cutoff_method"] == "pvalue" else "-q"
+macs2_extra_options = "-f BAMPE" if config["peakcalling"]["PE_mode"] == "Y" else "-f BAM"
+macs2_extra_options = macs2_extra_options + " --nolambda" if config["peakcalling"]["disable_lambda"] == "Y" else macs2_extra_options
+
+rule all:
+    input:
+        # peak calling final outputs
+        expand(["Result/Analysis/%s_peaks.narrowPeak" % (x) for x in [ config["input"]["cond1_name"], config["input"]["cond2_name"] ] ]),
+        # QC final outputs
+        expand(["Result/QC/%s.stat.txt" % (x) for x in [config["input"]["cond1_name"], config["input"]["cond2_name"] ] ]),
+        expand(["Result/QC/%s.peakstat.txt" % (x) for x in [config["input"]["cond1_name"], config["input"]["cond2_name"] ] ]),
+        "Result/Analysis/consensus_peaks.narrowPeak"
+
+# in order to generate above files, snakemake will use the following rules to call peaks and perform QC
+
+# this is for making consensus by calling peaks on all BAM files
+
+rule atac_callpeak_consensus:
+    input:
+        bams = expand(["Result/minimap2/%s.sortedByPos.rmdp.clean.bam" % (x) for x in [ config["input"]["cond1_name"], config["input"]["cond2_name"] ] ]),
+    output:
+        peak = "Result/Analysis/consensus_peaks.narrowPeak",
+        xls = "Result/Analysis/consensus_peaks.xls",
+    params:
+        name = "consensus",
+        genome = macs2_genome,
+        method = macs2_cutoff_method,
+        cutoff = config["peakcalling"]["cutoff"],
+        extra = macs2_extra_options,
+        chrombed = config["genome"]["chromBed"],
+	chromlen = config["genome"]["chromInfo"]
+    log:
+        "Result/Log/consensus_macs2_peak.log"
+    benchmark:
+        "Result/Benchmark/consensus_callpeak.benchmark"
+    shell:
+        "macs2 callpeak -g {params.genome} --outdir Result/Analysis -n {params.name} {params.method} {params.cutoff} {params.extra} -t {input.bams}; "
+
+rule atac_map:
+    input:
+        fasta = config["genome"]["fasta"],
+        fastq1 = "%s/{fastqid}_R1.fastq" % (config["workingdir"]),
+        fastq2 = "%s/{fastqid}_R2.fastq" % (config["workingdir"]),
+    output:
+        bam = temp("Result/minimap2/{fastqid}.sortedByPos.bam")
+    threads:
+        config["cores"]
+    shell:
+        "minimap2 -ax sr -t {threads} {input.fasta} {input.fastq1} {input.fastq2} "
+        "| samtools view --threads {threads} -b"
+        "| samtools sort --threads {threads} -o {output.bam}"
+
+rule atac_bamrmdp:
+    input:
+        bam = "Result/minimap2/{fastqid}.sortedByPos.bam"
+    output:
+        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.bam",
+        metric = "Result/minimap2/{fastqid}.sortedByPos.rmdp.txt",
+        tmp = temp(directory("Result/Tmp/{fastqid}"))
+    shell:
+        "picard MarkDuplicates INPUT={input.bam} OUTPUT={output.bam} METRICS_FILE={output.metric} TMP_DIR={output.tmp}; "
+        "rm {input.bam}; "
+
+# remove irregular chromosomes
+rule atac_bamclean:
+    input:
+        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.bam",
+    output:
+        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.bam",
+    params:
+        chrombed = config["genome"]["chromBed"],
+    shell:
+        "samtools view --threads {threads} -b -L {params.chrombed} -o {output.bam} {input.bam}; "
+
+# common single sample peak calling w/o control
+rule atac_callpeak:
+    input:
+        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.bam" 
+    output:
+        peak = "Result/Analysis/{fastqid}_peaks.narrowPeak",
+        xls = "Result/Analysis/{fastqid}_peaks.xls",
+        bdg = "Result/Analysis/{fastqid}_treat_pileup.bdg",
+        bw = "Result/Analysis/{fastqid}_treat_pileup.bw",
+    params:
+        name = "{fastqid}",
+        genome = macs2_genome,
+        method = macs2_cutoff_method,
+        cutoff = config["peakcalling"]["cutoff"],
+        extra = macs2_extra_options,
+        chrombed = config["genome"]["chromBed"],
+	chromlen = config["genome"]["chromInfo"]
+    log:
+        "Result/Log/{fastqid}_macs2_peak.log"
+    benchmark:
+        "Result/Benchmark/{fastqid}_callpeak.benchmark"
+    shell:
+        "macs2 callpeak -g {params.genome} --outdir Result/Analysis -n {params.name} -B {params.method} {params.cutoff} {params.extra} --SPMR -t {input.bam}; "
+	"bdg2bw {output.bdg} {params.chromlen}; "
+
+rule atac_qcstat:
+    input:
+        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.bam",
+        peak = "Result/Analysis/{fastqid}_peaks.narrowPeak",
+    output:
+        qc_stat = "Result/QC/{fastqid}.stat.txt",
+        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.unique.bam",
+        bed = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.unique.bed",
+    params:
+        promoter = "%s/%s_promoter.bed" %(config["annodir"], config["species"]),
+    threads:
+        config["cores"]
+    benchmark:
+        "Result/Benchmark/{fastqid}_BulkQCStat.benchmark"
+    shell:
+        "echo 'flagstat:' > {output.qc_stat}; "
+        "samtools flagstat --threads {threads} {input.bam} >> {output.qc_stat}; "
+        "samtools view -F 2316 -f 0x2 -q 30 -b -o {output.bam} {input.bam}; "
+        "echo 'mapped Q30 reads:' >> {output.qc_stat}; "
+        "samtools view {output.bam} -c >> {output.qc_stat}; "
+        "bedtools bamtobed -i {output.bam} > {output.bed}; "
+        "echo 'chrM reads:' >> {output.qc_stat}; "
+        "grep -c 'chrM' {output.bed} >> {output.qc_stat} || true; "
+        "echo 'non chrM reads:' >> {output.qc_stat}; "
+        "grep -v 'chrM' -c {output.bed} >> {output.qc_stat}; "
+        "echo 'non chrM reads in promoter:' >> {output.qc_stat}; "
+        "grep -v 'chrM' {output.bed} | bedtools intersect -wa -a - -b {params.promoter} -u | wc -l >> {output.qc_stat} || true; "
+        "echo 'non chrM reads in peak:' >> {output.qc_stat}; "
+        "grep -v 'chrM' {output.bed} | bedtools intersect -wa -a - -b {input.peak} -u | wc -l >> {output.qc_stat} || true ;"
+
+rule atac_peakqc:
+    input:
+        peak = "Result/Analysis/{fastqid}_peaks.narrowPeak",
+        peakxls = "Result/Analysis/{fastqid}_peaks.xls",
+    output:
+        peak_qc = "Result/QC/{fastqid}.peakstat.txt",
+    params:
+        promoter = "%s/%s_promoter.bed" %(config["annodir"], config["species"]),
+        chrMregion = "%s/%s_chrM.bed" %(config["annodir"], config["species"]),
+        blacklist = "%s/blacklist.bed" % (config["annodir"]),
+        DHS = "%s/DHS.bed" % (config["annodir"]),
+    threads:
+        config["cores"]
+    benchmark:
+        "Result/Benchmark/{fastqid}_PeakQCStat.benchmark"
+    shell:
+        "grep 'total fragments in treatment' {input.peakxls} | perl -pe 's/# //' > {output.peak_qc}; "
+        "grep 'fragments after filtering in treatment' {input.peakxls} | perl -pe 's/# //' >> {output.peak_qc}; "
+        "echo 'total number of peaks:' >> {output.peak_qc}; "
+        "wc -l {input.peak} | cut -f 1 -d' ' >> {output.peak_qc}; "
+        "echo 'number of peaks over FC 2:' >> {output.peak_qc}; "
+        "awk '$7>=2{{print}}' {input.peak} | wc -l >> {output.peak_qc}; "
+        "echo 'number of peaks in blacklist regions:' >> {output.peak_qc}; "
+        "bedtools intersect -a {input.peak} -b {params.blacklist} -u | wc -l >> {output.peak_qc}; "
+        "echo 'number of peaks in chrM:' >> {output.peak_qc}; "
+        "grep -w chrM {input.peak} | wc -l >> {output.peak_qc}; "
+        "echo 'number of peaks in promoter regions:' >> {output.peak_qc}; "
+        "bedtools intersect -a {input.peak} -b {params.promoter} -u | wc -l >> {output.peak_qc}; "
+        "echo 'number of peaks in DHS regions:' >> {output.peak_qc}; "
+        "bedtools intersect -a {input.peak} -b {params.DHS} -u | wc -l >> {output.peak_qc}; "
