@@ -1,22 +1,22 @@
-general:
-  # general settings for this analysis
-  # name of the analysis
-  name: thing1
-  # prefix of the output
-  outprefix: thing2
+outprefix: EXPNAME
 
-rawdata:
-  # raw data location
-  fastqdir: /mnt/lustre/users/tliu/the/fastq/dir
+# raw data location
+fastqdir: /path/to/fastq/files/
+
+# sample names for condition 1, fastq files in fastqdir should be NAME_R1.fastq.gz and NAME_R2.fastq.gz
+samples1: [cond1_rep1, cond1_rep2, cond1_rep3, cond1_rep4]
+# sample names for condition 2, fastq files in fastqdir should be NAME_R1.fastq.gz and NAME_R2.fastq.gz
+samples2: [cond2_rep1, cond2_rep2, cond2_rep3, cond2_rep4]
 
 options:
   # options for the analysis
   species: GRCh38
   cores: 2
 
-datafiles:
+genome:
   # Genome index directory for minimap2
-  fasta: /mnt/lustre/users/tliu/db/genome/GRCh38/genome.mmi
-  chromInfo: /mnt/lustre/users/tliu/db/genome/GRCh38/chrom.len
-  chromBed: /mnt/lustre/users/tliu/db/genome/GRCh38/chrom.bed
-  annodir: /mnt/lustre/users/tliu/db/annotation/GRCh38
+  fasta: /path/to/db/genome/GRCh38/genome.mmi
+  chromInfo: /path/to/db/genome/GRCh38/chrom.len
+  chromBed: /path/to/db/genome/GRCh38/chrom.bed
+
+annodir: /path/to/db/annotation/GRCh38

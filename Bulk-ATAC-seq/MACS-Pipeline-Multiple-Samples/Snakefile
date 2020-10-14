@@ -1,6 +1,5 @@
 """
-Bulk ATAC-seq analysis pipeline for multiple samples.
-
+Bulk ATAC-seq analysis pipeline.
 """
 
 configfile: "config.yaml"
@@ -9,20 +8,29 @@ import yaml
 import sys
 import os
 
+ALL_SAMPLES1 = config["samples1"]
+ALL_SAMPLES2 = config["samples2"]
+
+PEAKS1   = expand("Result/Analysis/{sample}_peaks.narrowPeak", sample=ALL_SAMPLES1)
+PEAKS2   = expand("Result/Analysis/{sample}_peaks.narrowPeak", sample=ALL_SAMPLES2)
+SEQSTAT1 = expand("Result/QC/{sample}.stat.txt", sample=ALL_SAMPLES1)
+SEQSTAT2 = expand("Result/QC/{sample}.stat.txt", sample=ALL_SAMPLES2)
+PEAKSTAT1= expand("Result/QC/{sample}.peakstat.txt", sample=ALL_SAMPLES1)
+PEAKSTAT2= expand("Result/QC/{sample}.peakstat.txt", sample=ALL_SAMPLES2)
+
+TARGET = []
+TARGET.extend(PEAKS1 + PEAKS2 + SEQSTAT1 + SEQSTAT2 + PEAKSTAT1 + PEAKSTAT2 )
+
 rule all:
-    input:
-	name = config["general"]["name"],
-	# this won't work...
-        expand(["Result/Analysis/%s_peaks.narrowPeak" % (x) for x in ["{name}_1","{name}_2","{name}_3","{name}_1","{name}_2","{name}_3"] ]),
-        expand(["Result/QC/%s.stat.txt" % (x) for x in ["{name}_1","{name}_2","{name}_3","{name}_1","{name}_2","{name}_3"] ]),
+    input: TARGET
 
 # ---- all the following rules are common rules for analyzing a single dataset ---
 
 rule atac_map:
     input:
-        fasta = config["datafiles"]["fasta"],
-        fastq1 = "%s/{fastqid}_R1.fastq.gz" % (config["rawdata"]["fastqdir"]),
-        fastq2 = "%s/{fastqid}_R2.fastq.gz" % (config["rawdata"]["fastqdir"])
+        fasta = config["genome"]["fasta"],
+        fastq1 = "%s/{fastqid}_R1.fastq.gz" % (config["fastqdir"]),
+        fastq2 = "%s/{fastqid}_R2.fastq.gz" % (config["fastqdir"])
     output:
         bam = temp("Result/minimap2/{fastqid}.sortedByPos.bam")
     threads:
@@ -32,12 +40,12 @@ rule atac_map:
         "| samtools view --threads {threads} -b"
         "| samtools sort --threads {threads} -o {output.bam}"
 
-rule atac_bamrmdp:
+rule atac_bammkdp:
     input:
         bam = "Result/minimap2/{fastqid}.sortedByPos.bam"
     output:
-        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.bam",
-        metric = "Result/minimap2/{fastqid}.sortedByPos.rmdp.txt",
+        bam = "Result/minimap2/{fastqid}.sortedByPos.mkdp.bam",
+        metric = "Result/minimap2/{fastqid}.sortedByPos.mkdp.txt",
         tmp = temp(directory("Result/Tmp/{fastqid}"))
     shell:
         "picard MarkDuplicates INPUT={input.bam} OUTPUT={output.bam} METRICS_FILE={output.metric} TMP_DIR={output.tmp};"
@@ -45,24 +53,25 @@ rule atac_bamrmdp:
 
 rule atac_callpeak:
     input:
-        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.bam" 
+        bam = "Result/minimap2/{fastqid}.sortedByPos.mkdp.bam" 
     output:
         peak = "Result/Analysis/{fastqid}_peaks.narrowPeak",
         bdg = "Result/Analysis/{fastqid}_treat_pileup.bdg",
         bw = "Result/Analysis/{fastqid}_treat_pileup.bw",
-        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.bam"
+        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.bam",
+	xls = "Result/Analysis/{fastqid}_peaks.xls",
     params:
         name = "{fastqid}",
-        chrombed = config["datafiles"]["chromBed"],
-	chromlen = config["datafiles"]["chromInfo"]
+        chrombed = config["genome"]["chromBed"],
+	chromlen = config["genome"]["chromInfo"]
     log:
         "Result/Log/{fastqid}_macs2_peak.log"
     benchmark:
         "Result/Benchmark/{fastqid}_callpeak.benchmark"
     shell:
-        "samtools view --threads {threads} -b -L {params.chrombed} -o {output.bam} {input.bam};"
-        "macs2 callpeak -g hs --outdir Result/Analysis -n {params.name} -B -q 0.05 -f BAMPE --SPMR -t {output.bam};"
-	"bdg2bw {output.bdg} {params.chromlen}"
+        "samtools view --threads {threads} -b -L {params.chrombed} -F 400 -o {output.bam} {input.bam};"
+        "macs2 callpeak -g hs --outdir Result/Analysis -n {params.name} --keep-dup all -B -q 0.05 -f BAMPE --SPMR -t {output.bam};"
+        "bdg2bw {output.bdg} {params.chromlen}"
 
 rule atac_qcstat:
     input:
@@ -73,7 +82,7 @@ rule atac_qcstat:
         bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.unique.bam",
         bed = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.unique.bed",
     params:
-        promoter = "%s/%s_promoter.bed" %(config["datafiles"]["annodir"], config["datafiles"]["species"]),
+        promoter = "%s/%s_promoter.bed" %(config["annodir"], config["options"]["species"]),
     threads:
         config["options"]["cores"]
     benchmark:
@@ -93,3 +102,34 @@ rule atac_qcstat:
         "grep -v 'chrM' {output.bed} | bedtools intersect -wa -a - -b {params.promoter} -u | wc -l >> {output.qc_stat} || true;"
         "echo 'non chrM reads in peak:' >> {output.qc_stat};"
         "grep -v 'chrM' {output.bed} | bedtools intersect -wa -a - -b {input.peak} -u | wc -l >> {output.qc_stat} || true ;"
+
+rule atac_peakqc:
+    input:
+        peak = "Result/Analysis/{fastqid}_peaks.narrowPeak",
+        peakxls = "Result/Analysis/{fastqid}_peaks.xls",
+    output:
+        peak_qc = "Result/QC/{fastqid}.peakstat.txt",
+    params:
+        promoter = "%s/%s_promoter.bed" %(config["annodir"], config["options"]["species"]),
+        chrMregion = "%s/%s_chrM.bed" %(config["annodir"], config["options"]["species"]),
+        blacklist = "%s/blacklist.bed" % (config["annodir"]),
+        DHS = "%s/DHS.bed" % (config["annodir"]),
+    threads:
+        config["options"]["cores"]
+    benchmark:
+        "Result/Benchmark/{fastqid}_PeakQCStat.benchmark"
+    shell:
+        "grep 'total fragments in treatment' {input.peakxls} | perl -pe 's/# //' > {output.peak_qc};"
+        "grep 'fragments after filtering in treatment' {input.peakxls} | perl -pe 's/# //' >> {output.peak_qc};"
+        "echo 'total number of peaks:' >> {output.peak_qc};"
+        "wc -l {input.peak} | cut -f 1 -d' ' >> {output.peak_qc};"
+        "echo 'number of peaks over FC 2:' >> {output.peak_qc};"
+        "awk '$7>=2{{print}}' {input.peak} | wc -l >> {output.peak_qc};"
+        "echo 'number of peaks in blacklist regions:' >> {output.peak_qc};"
+        "bedtools intersect -a {input.peak} -b {params.blacklist} -u | wc -l >> {output.peak_qc};"
+        "echo 'number of peaks in chrM:' >> {output.peak_qc};"
+        "grep -w chrM {input.peak} | wc -l >> {output.peak_qc};"
+        "echo 'number of peaks in promoter regions:' >> {output.peak_qc};"
+        "bedtools intersect -a {input.peak} -b {params.promoter} -u | wc -l >> {output.peak_qc};"
+        "echo 'number of peaks in DHS regions:' >> {output.peak_qc};"
+        "bedtools intersect -a {input.peak} -b {params.DHS} -u | wc -l >> {output.peak_qc};"
