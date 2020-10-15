@@ -15,8 +15,15 @@ options:
 
 genome:
   # Genome index directory for minimap2
-  fasta: /path/to/db/genome/GRCh38/genome.mmi
+  mmi: /path/to/db/genome/GRCh38/genome.mmi
+
+annotation:
   chromInfo: /path/to/db/genome/GRCh38/chrom.len
   chromBed: /path/to/db/genome/GRCh38/chrom.bed
-
-annodir: /path/to/db/annotation/GRCh38
+  promoter: /path/to/db/genome/GRCh38/GRCh38_promoter.bed
+  MtBed: /path/to/db/genome/GRCh38/GRCh38_chrM.bed
+  blacklist: /path/to/db/genome/GRCh38/blacklist.bed
+  DHS: /path/to/db/genome/GRCh38/DHS.bed
+  CEASlib: /path/to/db/genome/GRCh38/GRCh38.refGene
+  geneGTF: /path/to/db/genome/GRCh38/gencode.v22.annotation.gtf
+  

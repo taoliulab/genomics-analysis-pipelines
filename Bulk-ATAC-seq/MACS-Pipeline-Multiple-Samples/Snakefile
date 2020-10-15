@@ -28,7 +28,7 @@ rule all:
 
 rule atac_map:
     input:
-        fasta = config["genome"]["fasta"],
+        fasta = config["genome"]["mmi"],
         fastq1 = "%s/{fastqid}_R1.fastq.gz" % (config["fastqdir"]),
         fastq2 = "%s/{fastqid}_R2.fastq.gz" % (config["fastqdir"])
     output:
@@ -62,8 +62,8 @@ rule atac_callpeak:
 	xls = "Result/Analysis/{fastqid}_peaks.xls",
     params:
         name = "{fastqid}",
-        chrombed = config["genome"]["chromBed"],
-	chromlen = config["genome"]["chromInfo"]
+        chrombed = config["annotation"]["chromBed"],
+     	chromlen = config["annotation"]["chromInfo"]
     log:
         "Result/Log/{fastqid}_macs2_peak.log"
     benchmark:
@@ -82,7 +82,7 @@ rule atac_qcstat:
         bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.unique.bam",
         bed = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.unique.bed",
     params:
-        promoter = "%s/%s_promoter.bed" %(config["annodir"], config["options"]["species"]),
+        promoter = config["annotation"]["promoter"]
     threads:
         config["options"]["cores"]
     benchmark:
@@ -110,17 +110,17 @@ rule atac_peakqc:
     output:
         peak_qc = "Result/QC/{fastqid}.peakstat.txt",
     params:
-        promoter = "%s/%s_promoter.bed" %(config["annodir"], config["options"]["species"]),
-        chrMregion = "%s/%s_chrM.bed" %(config["annodir"], config["options"]["species"]),
-        blacklist = "%s/blacklist.bed" % (config["annodir"]),
-        DHS = "%s/DHS.bed" % (config["annodir"]),
+        promoter = config["annotation"]["promoter"]
+        chrMregion = config["annotation"]["MtBed"]
+        blacklist = config["annotation"]["blacklist"]
+        DHS = config["annotation"]["DHS"]
     threads:
         config["options"]["cores"]
     benchmark:
         "Result/Benchmark/{fastqid}_PeakQCStat.benchmark"
     shell:
         "grep 'total fragments in treatment' {input.peakxls} | perl -pe 's/# //' > {output.peak_qc};"
-        "grep 'fragments after filtering in treatment' {input.peakxls} | perl -pe 's/# //' >> {output.peak_qc};"
+        #"grep 'fragments after filtering in treatment' {input.peakxls} | perl -pe 's/# //' >> {output.peak_qc};"
         "echo 'total number of peaks:' >> {output.peak_qc};"
         "wc -l {input.peak} | cut -f 1 -d' ' >> {output.peak_qc};"
         "echo 'number of peaks over FC 2:' >> {output.peak_qc};"
