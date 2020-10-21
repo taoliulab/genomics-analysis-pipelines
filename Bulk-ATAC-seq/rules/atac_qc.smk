@@ -1,78 +1,3 @@
-"""
-Bulk ATAC-seq analysis pipeline.
-"""
-
-configfile: "config.yaml"
-
-import yaml
-import sys
-import os
-
-ALL_SAMPLES1 = config["samples1"]
-ALL_SAMPLES2 = config["samples2"]
-
-PEAKS1   = expand("Result/Analysis/{sample}_peaks.narrowPeak", sample=ALL_SAMPLES1)
-PEAKS2   = expand("Result/Analysis/{sample}_peaks.narrowPeak", sample=ALL_SAMPLES2)
-SEQSTAT1 = expand("Result/QC/{sample}.stat.txt", sample=ALL_SAMPLES1)
-SEQSTAT2 = expand("Result/QC/{sample}.stat.txt", sample=ALL_SAMPLES2)
-PEAKSTAT1= expand("Result/QC/{sample}.peakstat.txt", sample=ALL_SAMPLES1)
-PEAKSTAT2= expand("Result/QC/{sample}.peakstat.txt", sample=ALL_SAMPLES2)
-
-TARGET = []
-TARGET.extend(PEAKS1 + PEAKS2 + SEQSTAT1 + SEQSTAT2 + PEAKSTAT1 + PEAKSTAT2 )
-
-rule all:
-    input: TARGET
-
-# ---- all the following rules are common rules for analyzing a single dataset ---
-
-rule atac_map:
-    input:
-        fasta = config["genome"]["mmi"],
-        fastq1 = "%s/{fastqid}_R1.fastq.gz" % (config["fastqdir"]),
-        fastq2 = "%s/{fastqid}_R2.fastq.gz" % (config["fastqdir"])
-    output:
-        bam = temp("Result/minimap2/{fastqid}.sortedByPos.bam")
-    threads:
-        config["options"]["cores"]
-    shell:
-        "minimap2 -ax sr -t {threads} {input.fasta} {input.fastq1} {input.fastq2} "
-        "| samtools view --threads {threads} -b"
-        "| samtools sort --threads {threads} -o {output.bam}"
-
-rule atac_bammkdp:
-    input:
-        bam = "Result/minimap2/{fastqid}.sortedByPos.bam"
-    output:
-        bam = "Result/minimap2/{fastqid}.sortedByPos.mkdp.bam",
-        metric = "Result/minimap2/{fastqid}.sortedByPos.mkdp.txt",
-        tmp = temp(directory("Result/Tmp/{fastqid}"))
-    shell:
-        "picard MarkDuplicates INPUT={input.bam} OUTPUT={output.bam} METRICS_FILE={output.metric} TMP_DIR={output.tmp};"
-        "rm {input.bam}"
-
-rule atac_callpeak:
-    input:
-        bam = "Result/minimap2/{fastqid}.sortedByPos.mkdp.bam" 
-    output:
-        peak = "Result/Analysis/{fastqid}_peaks.narrowPeak",
-        bdg = "Result/Analysis/{fastqid}_treat_pileup.bdg",
-        bw = "Result/Analysis/{fastqid}_treat_pileup.bw",
-        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.bam",
-	xls = "Result/Analysis/{fastqid}_peaks.xls",
-    params:
-        name = "{fastqid}",
-        chrombed = config["annotation"]["chromBed"],
-     	chromlen = config["annotation"]["chromInfo"]
-    log:
-        "Result/Log/{fastqid}_macs2_peak.log"
-    benchmark:
-        "Result/Benchmark/{fastqid}_callpeak.benchmark"
-    shell:
-        "samtools view --threads {threads} -b -L {params.chrombed} -F 400 -o {output.bam} {input.bam};"
-        "macs2 callpeak -g hs --outdir Result/Analysis -n {params.name} --keep-dup all -B -q 0.05 -f BAMPE --SPMR -t {output.bam};"
-        "bdg2bw {output.bdg} {params.chromlen}"
-
 rule atac_qcstat:
     input:
         bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.bam",
@@ -133,3 +58,13 @@ rule atac_peakqc:
         "bedtools intersect -a {input.peak} -b {params.promoter} -u | wc -l >> {output.peak_qc};"
         "echo 'number of peaks in DHS regions:' >> {output.peak_qc};"
         "bedtools intersect -a {input.peak} -b {params.DHS} -u | wc -l >> {output.peak_qc};"
+
+rule atac_frag:
+    input:
+        bam = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.unique.bam",
+    output:
+        insertl = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.unique.bam.insertl",
+        insertlsum = "Result/minimap2/{fastqid}.sortedByPos.rmdp.clean.unique.bam.insertl.txt",        
+    shell:
+        "samtools view {input.bam} | cut -f 9 | awk '$1>0{{print}}' > {output.insertl};"
+        "perl -e 'while(<>){{chomp;$bin=int($_/10);$count{{$bin}}+=1}}foreach my $key (sort {{$a<=>$b}} keys %count){print $key*10,'\t',$count{{$key}},'\n'}' {output.insertl} > {output.insertlsum};"

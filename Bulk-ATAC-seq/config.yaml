@@ -10,12 +10,25 @@ samples2: [cond2_rep1, cond2_rep2, cond2_rep3, cond2_rep4]
 
 options:
   # options for the analysis
+  # aligner for mapping reads, choose from minimap2, bwa-mem, bwa-mem2, and chrommap
+  mapper: minimap2
+  # species
   species: GRCh38
+  # pvalue or qvalue
+  peakcalling_cutoff_method: qvalue
+  # cutoff value
+  peakcalling_cutoff: 0.05
+  # Y to use paried end mode -f BAMPE, otherwise -f BAM
+  peakcalling_PE_mode: Y
+  # Y to use --nolambda, otherwise no change
+  peakcalling_disable_lambda: Y
+  # number of cores to use
   cores: 2
-
+  
 genome:
-  # Genome index directory for minimap2
+  # Genome index for minimap2
   mmi: /path/to/db/genome/GRCh38/genome.mmi
+  # Genome index for bwa-mem
 
 annotation:
   chromInfo: /path/to/db/genome/GRCh38/chrom.len
@@ -26,4 +39,6 @@ annotation:
   DHS: /path/to/db/genome/GRCh38/DHS.bed
   CEASlib: /path/to/db/genome/GRCh38/GRCh38.refGene
   geneGTF: /path/to/db/genome/GRCh38/gencode.v22.annotation.gtf
-  
+
+
+

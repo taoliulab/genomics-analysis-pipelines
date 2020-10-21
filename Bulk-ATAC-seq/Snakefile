@@ -1,0 +1,48 @@
+"""
+Bulk ATAC-seq analysis pipeline.
+"""
+
+configfile: "config.yaml"
+
+import yaml
+import sys
+import os
+
+ALL_SAMPLES1 = config["samples1"]
+ALL_SAMPLES2 = config["samples2"]
+
+PEAKS1   = expand("Result/Analysis/{sample}_peaks.narrowPeak", sample=ALL_SAMPLES1)
+PEAKS2   = expand("Result/Analysis/{sample}_peaks.narrowPeak", sample=ALL_SAMPLES2)
+SEQSTAT1 = expand("Result/QC/{sample}.stat.txt", sample=ALL_SAMPLES1)
+SEQSTAT2 = expand("Result/QC/{sample}.stat.txt", sample=ALL_SAMPLES2)
+PEAKSTAT1= expand("Result/QC/{sample}.peakstat.txt", sample=ALL_SAMPLES1)
+PEAKSTAT2= expand("Result/QC/{sample}.peakstat.txt", sample=ALL_SAMPLES2)
+
+TARGET = []
+TARGET.extend(PEAKS1 + PEAKS2 + SEQSTAT1 + SEQSTAT2 + PEAKSTAT1 + PEAKSTAT2 )
+
+# decide certain parameters based on config.yaml
+mapper = config["options"]["mapper"]
+macs2_genome = "hs" if config["options"]["species"] == "GRCh38" else "mm"
+macs2_cutoff_method = "-p" if config["options"]["peakcalling_cutoff_method"] == "pvalue" else "-q"
+macs2_extra_options = "-f BAMPE" if config["options"]["peakcalling_PE_mode"] == "Y" else "-f BAM"
+macs2_extra_options = macs2_extra_options + " --nolambda" if config["options"]["peakcalling_disable_lambda"] == "Y" else macs2_extra_options
+
+# one line to rule all
+
+rule all:
+    input: TARGET
+
+# ---- all the following rules are common rules for analyzing a single dataset ---
+
+include: "rules/atac_mapping.smk"
+include: "rules/atac_macs2.smk"
+#include: "rules/atac_peak_annotating.smk"
+include: "rules/atac_qc.smk"
+
+
+# ---- integrative analysis of all samples ---
+
+#include: "rules/atac_dar.smk"
+#include: "rules/atac_dar_annotating.smk"
+
