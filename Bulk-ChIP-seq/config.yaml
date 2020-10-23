@@ -1,0 +1,45 @@
+outprefix: EXPNAME
+
+# raw data location
+fastqdir: /path/to/fastq/files/
+
+# sample names, fastq files in fastqdir should be NAME_treatment_R1/R2.fastq.gz and NAME_control_R1/2.fastq.gz
+samples: [rep1, rep2, rep3, rep4]
+
+options:
+  # options for the analysis
+  # mapping for paired-end or not, choose Y or N
+  paired: N
+  # aligner for mapping reads, choose from minimap2, bwa-mem, bwa-mem2, and chrommap
+  mapper: bwa-mem
+  # species
+  species: GRCh38
+  # pvalue or qvalue
+  peakcalling_cutoff_method: qvalue
+  # cutoff value
+  peakcalling_cutoff: 0.05
+  # Y to use paried end mode -f BAMPE, otherwise -f BAM
+  peakcalling_PE_mode: N
+  # Y to use --nolambda, otherwise no change
+  peakcalling_disable_lambda: N
+  # number of cores to use
+  cores: 2
+  
+genome:
+  # Genome index for minimap2
+  mmi: /path/to/db/genome/GRCh38/genome.mmi
+  # Genome index for bwa-mem
+  bwaindex: /path/to/db/genome/GRCh38/genome.fa
+
+annotation:
+  chromInfo: /path/to/db/genome/GRCh38/chrom.len
+  chromBed: /path/to/db/genome/GRCh38/chrom.bed
+  promoter: /path/to/db/genome/GRCh38/GRCh38_promoter.bed
+  MtBed: /path/to/db/genome/GRCh38/GRCh38_chrM.bed
+  blacklist: /path/to/db/genome/GRCh38/blacklist.bed
+  DHS: /path/to/db/genome/GRCh38/DHS.bed
+  CEASlib: /path/to/db/genome/GRCh38/GRCh38.refGene
+  geneGTF: /path/to/db/genome/GRCh38/gencode.v22.annotation.gtf
+
+
+

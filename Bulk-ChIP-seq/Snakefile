@@ -1,0 +1,45 @@
+"""
+Bulk ATAC-seq analysis pipeline.
+"""
+
+configfile: "config.yaml"
+
+import yaml
+import sys
+import os
+
+ALL_SAMPLES = config["samples1"]
+
+PEAKS   = expand("Result/Analysis/{sample}_peaks.narrowPeak", sample=ALL_SAMPLES)
+SEQSTAT = expand("Result/QC/{sample}.stat.txt", sample=ALL_SAMPLES)
+PEAKSTAT= expand("Result/QC/{sample}.peakstat.txt", sample=ALL_SAMPLES)
+
+TARGET = []
+TARGET.extend(PEAKS + SEQSTAT + PEAKSTAT )
+
+# decide certain parameters based on config.yaml
+mapper = config["options"]["mapper"]
+macs2_genome_option = "-g hs" if config["options"]["species"] == "GRCh38" else "-g mm"
+macs2_cutoff_option = "-p " if config["options"]["peakcalling_cutoff_method"] == "pvalue" else "-q"
+macs2_cutoff_option += config["config"]["peakcalling_cutoff"]
+macs2_format_option = "-f BAMPE" if config["options"]["peakcalling_PE_mode"] == "Y" else "-f BAM"
+macs2_lambda_option = " --nolambda" if config["options"]["peakcalling_disable_lambda"] == "Y" else " "
+
+# one line to rule all
+
+rule all:
+    input: TARGET
+
+# ---- all the following rules are common rules for analyzing a single dataset ---
+
+include: "rules/chip_mapping.smk"
+include: "rules/chip_macs2.smk"
+#include: "rules/chip_peak_annotating.smk"
+include: "rules/chip_qc.smk"
+
+
+# ---- integrative analysis of all samples ---
+
+#include: "rules/atac_dar.smk"
+#include: "rules/atac_dar_annotating.smk"
+
