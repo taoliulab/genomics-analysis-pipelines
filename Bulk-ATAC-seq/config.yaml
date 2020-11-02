@@ -10,6 +10,8 @@ samples2: [cond2_rep1, cond2_rep2, cond2_rep3, cond2_rep4]
 
 options:
   # options for the analysis
+  # mapping for paired-end or not, choose Y or N
+  paired: Y  
   # aligner for mapping reads, choose from minimap2, bwa-mem, bwa-mem2, and chrommap
   mapper: minimap2
   # species
@@ -29,6 +31,7 @@ genome:
   # Genome index for minimap2
   mmi: /path/to/db/genome/GRCh38/genome.mmi
   # Genome index for bwa-mem
+  bwaindex: /path/to/db/genome/GRCh38/genome.fa  
 
 annotation:
   chromInfo: /path/to/db/genome/GRCh38/chrom.len

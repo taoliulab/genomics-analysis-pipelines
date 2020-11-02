@@ -11,6 +11,8 @@ import os
 ALL_SAMPLES1 = config["samples1"]
 ALL_SAMPLES2 = config["samples2"]
 
+OUT_DIR = config["outprefix"] + "_Result"
+
 PEAKS1   = expand("Result/Analysis/{sample}_peaks.narrowPeak", sample=ALL_SAMPLES1)
 PEAKS2   = expand("Result/Analysis/{sample}_peaks.narrowPeak", sample=ALL_SAMPLES2)
 SEQSTAT1 = expand("Result/QC/{sample}.stat.txt", sample=ALL_SAMPLES1)
