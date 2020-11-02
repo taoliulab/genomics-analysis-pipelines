@@ -35,14 +35,14 @@ rule atac_peakqc:
     output:
         peak_qc = "Result/QC/{fastqid}.peakstat.txt",
     params:
-        promoter = config["annotation"]["promoter"]
-        chrMregion = config["annotation"]["MtBed"]
-        blacklist = config["annotation"]["blacklist"]
-        DHS = config["annotation"]["DHS"]
+        promoter = config["annotation"]["promoter"],
+        chrMregion = config["annotation"]["MtBed"],
+        blacklist = config["annotation"]["blacklist"],
+        DHS = config["annotation"]["DHS"],
     threads:
-        config["options"]["cores"]
+        config["options"]["cores"],
     benchmark:
-        "Result/Benchmark/{fastqid}_PeakQCStat.benchmark"
+        "Result/Benchmark/{fastqid}_PeakQCStat.benchmark",
     shell:
         "grep 'total fragments in treatment' {input.peakxls} | perl -pe 's/# //' > {output.peak_qc};"
         #"grep 'fragments after filtering in treatment' {input.peakxls} | perl -pe 's/# //' >> {output.peak_qc};"

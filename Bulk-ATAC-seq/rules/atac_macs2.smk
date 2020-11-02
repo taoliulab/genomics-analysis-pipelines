@@ -27,6 +27,6 @@ rule atac_callpeak:
     benchmark:
         "Result/Benchmark/{fastqid}_callpeak.benchmark"
     shell:
-        "samtools view --threads {threads} -b -L {params.chrombed} -F 400 -o {output.bam} {input.bam};"
+        "samtools view --threads {threads} -b -L {params.chrombed} -F 0x400 -o {output.bam} {input.bam};"
         "macs2 callpeak -g hs --outdir Result/Analysis -n {params.name} --keep-dup all -B -q 0.05 -f BAMPE --SPMR -t {output.bam};"
         "bdg2bw {output.bdg} {params.chromlen}"

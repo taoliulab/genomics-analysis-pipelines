@@ -23,10 +23,12 @@ TARGET.extend(PEAKS1 + PEAKS2 + SEQSTAT1 + SEQSTAT2 + PEAKSTAT1 + PEAKSTAT2 )
 
 # decide certain parameters based on config.yaml
 mapper = config["options"]["mapper"]
-macs2_genome = "hs" if config["options"]["species"] == "GRCh38" else "mm"
-macs2_cutoff_method = "-p" if config["options"]["peakcalling_cutoff_method"] == "pvalue" else "-q"
-macs2_extra_options = "-f BAMPE" if config["options"]["peakcalling_PE_mode"] == "Y" else "-f BAM"
-macs2_extra_options = macs2_extra_options + " --nolambda" if config["options"]["peakcalling_disable_lambda"] == "Y" else macs2_extra_options
+macs2_genome_option = " -g hs " if config["options"]["species"] == "GRCh38" else " -g mm "
+macs2_cutoff_option = " -p " if config["options"]["peakcalling_cutoff_method"] == "pvalue" else " -q "
+macs2_cutoff_option += str(config["options"]["peakcalling_cutoff"])
+macs2_format_option = " -f BAMPE " if config["options"]["peakcalling_PE_mode"] == "Y" else " -f BAM "
+macs2_lambda_option = " --nolambda " if config["options"]["peakcalling_disable_lambda"] == "Y" else " "
+macs2_option = f"{macs2_genome_option} {macs2_cutoff_option} {macs2_lambda_option} {macs2_format_option}"
 
 # one line to rule all
 
