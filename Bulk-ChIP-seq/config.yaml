@@ -1,10 +1,10 @@
 outprefix: EXPNAME
 
 # raw data location
-fastqdir: /path/to/fastq/files/
+fastqdir: /mnt/lustre/users/tliu/Zhang/ChIP-seq-reanalysis/fastqfiles
 
 # sample names, fastq files in fastqdir should be NAME_treatment_R1/R2.fastq.gz and NAME_control_R1/2.fastq.gz
-samples: [rep1, rep2, rep3, rep4]
+samples: [Rep1, Rep2, Rep3]
 
 options:
   # options for the analysis
@@ -27,19 +27,19 @@ options:
   
 genome:
   # Genome index for minimap2
-  mmi: /path/to/db/genome/GRCh38/genome.mmi
+  mmi: /mnt/lustre/users/tliu/db/genome/GRCh38/genome.mmi
   # Genome index for bwa-mem
-  bwaindex: /path/to/db/genome/GRCh38/genome.fa
+  bwaindex: /mnt/lustre/users/tliu/db/genome/GRCh38/genome.fa
 
 annotation:
-  chromInfo: /path/to/db/genome/GRCh38/chrom.len
-  chromBed: /path/to/db/genome/GRCh38/chrom.bed
-  promoter: /path/to/db/genome/GRCh38/GRCh38_promoter.bed
-  MtBed: /path/to/db/genome/GRCh38/GRCh38_chrM.bed
-  blacklist: /path/to/db/genome/GRCh38/blacklist.bed
-  DHS: /path/to/db/genome/GRCh38/DHS.bed
-  CEASlib: /path/to/db/genome/GRCh38/GRCh38.refGene
-  geneGTF: /path/to/db/genome/GRCh38/gencode.v22.annotation.gtf
+  chromInfo: /mnt/lustre/users/tliu/db/annotation/GRCh38/GRCh38_chr.len
+  chromBed: /mnt/lustre/users/tliu/db/annotation/GRCh38/GRCh38_chr_limit.bed
+  promoter: /mnt/lustre/users/tliu/db/annotation/GRCh38/GRCh38_promoter.bed
+  MtBed: /mnt/lustre/users/tliu/db/annotation/GRCh38/GRCh38_chrM.bed
+  blacklist: /mnt/lustre/users/tliu/db/annotation/GRCh38/blacklist.bed
+  DHS: /mnt/lustre/users/tliu/db/annotation/GRCh38/DHS.bed
+  CEASlib: /mnt/lustre/users/tliu/db/annotation/GRCh38/GRCh38.refGene
+  geneGTF: /mnt/lustre/users/tliu/db/annotation/GRCh38/gencode.v22.annotation.gtf
 
 
 

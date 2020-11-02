@@ -1,11 +1,11 @@
 if mapper == "minimap2":
-   if config["options"]["paired"] == "Y":
-       rule chip_map:
-           input:
+    if config["options"]["paired"] == "Y":
+        rule chip_map:
+            input:
                 fastq1 = "%s/{fastqid}_R1.fastq.gz" % (config["fastqdir"]),
                 fastq2 = "%s/{fastqid}_R2.fastq.gz" % (config["fastqdir"])
             output:
-                bam = temp("Result/minimap2/{fastqid}.sortedByPos.bam")
+                bam = temp("{OUT_DIR}/minimap2/{fastqid}.sortedByPos.bam")
             params:
                 genome = config["genome"]["mmi"],
             threads:
@@ -15,11 +15,11 @@ if mapper == "minimap2":
                 "| samtools view --threads {threads} -b"
                 "| samtools sort --threads {threads} -o {output.bam}"
     else:
-       rule chip_map:
-           input:
+        rule chip_map:
+            input:
                 fastq1 = "%s/{fastqid}_R1.fastq.gz" % (config["fastqdir"]),
             output:
-                bam = temp("Result/minimap2/{fastqid}.sortedByPos.bam")
+                bam = temp("{OUT_DIR}/minimap2/{fastqid}.sortedByPos.bam")
             params:
                 genome = config["genome"]["mmi"],
             threads:
@@ -30,13 +30,13 @@ if mapper == "minimap2":
                 "| samtools sort --threads {threads} -o {output.bam}"
         
 elif mapper == "bwa-mem":
-   if config["options"]["paired"] == "Y":
-       rule chip_map:
-           input:
+    if config["options"]["paired"] == "Y":
+        rule chip_map:
+            input:
                 fastq1 = "%s/{fastqid}_R1.fastq.gz" % (config["fastqdir"]),
                 fastq2 = "%s/{fastqid}_R2.fastq.gz" % (config["fastqdir"])
             output:
-                bam = temp("Result/minimap2/{fastqid}.sortedByPos.bam")
+                bam = temp("{OUT_DIR}/minimap2/{fastqid}.sortedByPos.bam")
             params:
                 genome = config["genome"]["bwaindex"],
             threads:
@@ -46,11 +46,11 @@ elif mapper == "bwa-mem":
                 "| samtools view --threads {threads} -b"
                 "| samtools sort --threads {threads} -o {output.bam}"
     else:
-       rule chip_map:
-           input:
+        rule chip_map:
+            input:
                 fastq1 = "%s/{fastqid}_R1.fastq.gz" % (config["fastqdir"]),
             output:
-                bam = temp("Result/minimap2/{fastqid}.sortedByPos.bam")
+                bam = temp("{OUT_DIR}/minimap2/{fastqid}.sortedByPos.bam")
             params:
                 genome = config["genome"]["bwaindex"],
             threads:

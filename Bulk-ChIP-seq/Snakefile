@@ -8,23 +8,25 @@ import yaml
 import sys
 import os
 
-ALL_SAMPLES = config["samples1"]
+ALL_SAMPLES = config["samples"]
+OUT_DIR = config["outprefix"] + "_Result"
 
-PEAKS   = expand("Result/Analysis/{sample}_peaks.narrowPeak", sample=ALL_SAMPLES)
-SEQSTAT = expand("Result/QC/{sample}.stat.txt", sample=ALL_SAMPLES)
-PEAKSTAT= expand("Result/QC/{sample}.peakstat.txt", sample=ALL_SAMPLES)
+PEAKS   = expand(OUT_DIR + "/Analysis/{sample}_peaks.narrowPeak", sample=ALL_SAMPLES)
+BIGWIGS = expand(OUT_DIR + "/Analysis/{sample}_{ftype}.bw", sample=ALL_SAMPLES, ftype=["treat_pileup", "control_lambda"])
+SEQSTAT = expand(OUT_DIR + "/QC/{sample}.stat.txt", sample=ALL_SAMPLES)
+PEAKSTAT= expand(OUT_DIR + "/QC/{sample}.peakstat.txt", sample=ALL_SAMPLES)
 
 TARGET = []
-TARGET.extend(PEAKS + SEQSTAT + PEAKSTAT )
+TARGET.extend(PEAKS + SEQSTAT + PEAKSTAT + BIGWIGS )
 
 # decide certain parameters based on config.yaml
 mapper = config["options"]["mapper"]
-macs2_genome_option = "-g hs" if config["options"]["species"] == "GRCh38" else "-g mm"
-macs2_cutoff_option = "-p " if config["options"]["peakcalling_cutoff_method"] == "pvalue" else "-q"
-macs2_cutoff_option += config["config"]["peakcalling_cutoff"]
-macs2_format_option = "-f BAMPE" if config["options"]["peakcalling_PE_mode"] == "Y" else "-f BAM"
-macs2_lambda_option = " --nolambda" if config["options"]["peakcalling_disable_lambda"] == "Y" else " "
-
+macs2_genome_option = " -g hs " if config["options"]["species"] == "GRCh38" else " -g mm "
+macs2_cutoff_option = " -p " if config["options"]["peakcalling_cutoff_method"] == "pvalue" else " -q "
+macs2_cutoff_option += str(config["options"]["peakcalling_cutoff"])
+macs2_format_option = " -f BAMPE " if config["options"]["peakcalling_PE_mode"] == "Y" else " -f BAM "
+macs2_lambda_option = " --nolambda " if config["options"]["peakcalling_disable_lambda"] == "Y" else " "
+macs2_option = f"{macs2_genome_option} {macs2_cutoff_option} {macs2_lambda_option} {macs2_format_option}"
 # one line to rule all
 
 rule all:

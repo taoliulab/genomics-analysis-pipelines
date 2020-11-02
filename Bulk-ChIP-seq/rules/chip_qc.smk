@@ -1,21 +1,22 @@
 rule chip_qcstat:
     input:
-        bam = "Result/minimap2/{expid}_treatment.sortedByPos.rmdp.clean.bam",
-        peak = "Result/Analysis/{expid}_peaks.narrowPeak",
+        bam_dirty = "{OUT_DIR}/minimap2/{expid}_treatment.sortedByPos.mkdp.bam",
+        bam_clean = "{OUT_DIR}/minimap2/{expid}_treatment.sortedByPos.rmdp.clean.bam",
+        peak = "{OUT_DIR}/Analysis/{expid}_peaks.narrowPeak",
     output:
-        qc_stat = "Result/QC/{expid}.stat.txt",
-        bam = "Result/minimap2/{expid}.sortedByPos.rmdp.clean.unique.bam",
-        bed = "Result/minimap2/{expid}.sortedByPos.rmdp.clean.unique.bed",
+        qc_stat = "{OUT_DIR}/QC/{expid}.stat.txt",
+        bam = "{OUT_DIR}/minimap2/{expid}.sortedByPos.rmdp.clean.unique.bam",
+        bed = "{OUT_DIR}/minimap2/{expid}.sortedByPos.rmdp.clean.unique.bed",
     params:
         promoter = config["annotation"]["promoter"]
     threads:
         config["options"]["cores"]
     benchmark:
-        "Result/Benchmark/{expid}_BulkQCStat.benchmark"
+        "{OUT_DIR}/Benchmark/{expid}_BulkQCStat.benchmark"
     shell:
         "echo 'flagstat:' > {output.qc_stat};"
-        "samtools flagstat --threads {threads} {input.bam} >> {output.qc_stat};"
-        "samtools view -F 2316 -f 0x2 -q 30 -b -o {output.bam} {input.bam};"
+        "samtools flagstat --threads {threads} {input.bam_dirty} >> {output.qc_stat};"
+        "samtools view -F 2316 -f 0x2 -q 30 -b -o {output.bam} {input.bam_dirty};"
         "echo 'mapped Q30 reads:' >> {output.qc_stat};"
         "samtools view {output.bam} -c >> {output.qc_stat};"
         "bedtools bamtobed -i {output.bam} > {output.bed};"
@@ -30,19 +31,19 @@ rule chip_qcstat:
 
 rule chip_peakqc:
     input:
-        peak = "Result/Analysis/{expid}_peaks.narrowPeak",
-        peakxls = "Result/Analysis/{expid}_peaks.xls",
+        peak = "{OUT_DIR}/Analysis/{expid}_peaks.narrowPeak",
+        peakxls = "{OUT_DIR}/Analysis/{expid}_peaks.xls",
     output:
-        peak_qc = "Result/QC/{expid}.peakstat.txt",
+        peak_qc = "{OUT_DIR}/QC/{expid}.peakstat.txt",
     params:
-        promoter = config["annotation"]["promoter"]
-        chrMregion = config["annotation"]["MtBed"]
-        blacklist = config["annotation"]["blacklist"]
-        DHS = config["annotation"]["DHS"]
+        promoter = config["annotation"]["promoter"],
+        chrMregion = config["annotation"]["MtBed"],
+        blacklist = config["annotation"]["blacklist"],
+        DHS = config["annotation"]["DHS"],
     threads:
         config["options"]["cores"]
     benchmark:
-        "Result/Benchmark/{expid}_PeakQCStat.benchmark"
+        "{OUT_DIR}/Benchmark/{expid}_PeakQCStat.benchmark"
     shell:
         "grep 'total fragments in treatment' {input.peakxls} | perl -pe 's/# //' > {output.peak_qc};"
         #"grep 'fragments after filtering in treatment' {input.peakxls} | perl -pe 's/# //' >> {output.peak_qc};"
